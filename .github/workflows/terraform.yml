@@ -106,3 +106,4 @@ jobs:
             -Dsonar.login=${{ secrets.SONAR_AUTH_TOKEN }}
             -Dsonar.host.url=http://${{ env.SONAR_IP }}:9000
 
+
