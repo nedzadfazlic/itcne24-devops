@@ -7,7 +7,7 @@ terraform {
   backend "s3" {
     bucket         = "itcne24bucket" # <<< CRITICAL: CHANGE THIS TO A UNIQUE BUCKET NAME!
     key            = "ec2-instance/terraform.tfstate"
-    region         = "us-west-2"
+    region         = "us-east-1"
     encrypt        = true
     dynamodb_table = "terraform-lock" # Optional: Prevents concurrent modification
   }
