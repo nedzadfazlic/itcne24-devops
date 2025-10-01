@@ -77,7 +77,7 @@ jobs:
         working-directory: ${{ env.TF_WORKING_DIR }}
 
 
-    sonarqube-scan:
+  sonarqube-scan:
     name: 'SonarQube Analysis'
     needs: [terraform-deploy]
     runs-on: ubuntu-latest
@@ -90,6 +90,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0 
+# --- 2. SonarQube Analysis Job ---
 
       # Run the SonarQube Scanner for the Flask application
       - name: SonarQube Scan
