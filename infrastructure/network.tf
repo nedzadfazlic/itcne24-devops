@@ -1,70 +1,100 @@
-# Define a standard VPC, Subnet, and Internet Gateway if you don't have them already.
-# If your lab gives you an existing VPC, replace this block with a data source block.
+# network.tf
 
+# 1. Virtual Private Cloud (VPC)
 resource "aws_vpc" "devops_vpc" {
   cidr_block           = "10.0.0.0/16"
   enable_dns_support   = true
   enable_dns_hostnames = true
   tags = {
-    Name = "DevOps-VPC"
+    Name = "devops-vpc"
   }
 }
 
-resource "aws_internet_gateway" "gw" {
+# 2. Internet Gateway (to allow traffic out/in)
+resource "aws_internet_gateway" "devops_igw" {
   vpc_id = aws_vpc.devops_vpc.id
   tags = {
-    Name = "DevOps-IGW"
+    Name = "devops-igw"
   }
 }
 
+# 3. Public Subnet
 resource "aws_subnet" "public" {
   vpc_id                  = aws_vpc.devops_vpc.id
-  cidr_block              = "10.0.1.0/24"
-  map_public_ip_on_launch = true
-  availability_zone       = "us-east-1a" # Change AZ as needed
+  cidr_block              = "10.0.1.0/24" # A /24 subnet within the /16 VPC
+  map_public_ip_on_launch = true          # CRITICAL for public access
+  availability_zone       = data.aws_availability_zones.available.names[0]
   tags = {
-    Name = "DevOps-Public-Subnet"
+    Name = "devops-public-subnet"
   }
 }
 
-# --- Shared Security Group ---
+# 4. Route Table (for public routing)
+resource "aws_route_table" "public_rt" {
+  vpc_id = aws_vpc.devops_vpc.id
+  route {
+    cidr_block = "0.0.0.0/0"        # Default route to the internet
+    gateway_id = aws_internet_gateway.devops_igw.id
+  }
+  tags = {
+    Name = "devops-public-rt"
+  }
+}
+
+# 5. Route Table Association
+resource "aws_route_table_association" "public_rta" {
+  subnet_id      = aws_subnet.public.id
+  route_table_id = aws_route_table.public_rt.id
+}
+
+# 6. Security Group (Shared by all three EC2s)
+# This grants access to the necessary ports for all services
 resource "aws_security_group" "devops_sg" {
-  name        = "devops-stack-sg"
-  description = "Allows inter-VM communication and public access for services"
+  name        = "devops_sg"
+  description = "Security Group for Flask, SonarQube, and Monitoring EC2s"
   vpc_id      = aws_vpc.devops_vpc.id
 
-  # 1. ALLOW ALL TRAFFIC INTERNALLY (Prometheus scraping the App)
+  # Ingress: SSH (Port 22) from everywhere (for setup/debugging)
   ingress {
-    description = "Self-referencing rule for internal communication"
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    self        = true
+    description = "SSH Access"
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
-  # 2. PUBLIC ACCESS RULES (Open to 0.0.0.0/0 for testing)
-  # IMPORTANT: For production, restrict 'cidr_blocks' to your office/VPN IP range.
-  dynamic "ingress" {
-    for_each = [
-      { port = 22, name = "SSH" },          # Access to all EC2s
-      { port = 80, name = "Flask-App" },    # Access to the application
-      { port = 3000, name = "Grafana" },    # Access to Grafana UI
-      { port = 9000, name = "SonarQube" },  # Access to SonarQube UI
-      { port = 9090, name = "Prometheus" }  # Access to Prometheus UI
-    ]
-    content {
-      from_port   = ingress.value.port
-      to_port     = ingress.value.port
-      protocol    = "tcp"
-      cidr_blocks = ["0.0.0.0/0"] 
-    }
+  # Ingress: Flask App (Port 80) from everywhere
+  ingress {
+    description = "HTTP Access for Flask App"
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
-  # 3. ALLOW ALL OUTBOUND TRAFFIC
+  # Ingress: SonarQube (Port 9000) from everywhere
+  ingress {
+    description = "SonarQube Web UI"
+    from_port   = 9000
+    to_port     = 9000
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  # Egress: All outbound traffic allowed (needed for package installs, etc.)
   egress {
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
+
+  tags = {
+    Name = "devops-security-group"
+  }
+}
+
+# Data source to dynamically get an available AZ (best practice)
+data "aws_availability_zones" "available" {
+  state = "available"
 }
