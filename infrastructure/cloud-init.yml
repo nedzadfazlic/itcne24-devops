@@ -1,0 +1,70 @@
+#cloud-config
+users:
+  - name: ubuntu    
+    shell: /bin/bash
+    groups: users, admin
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    ssh_authorized_keys:
+      - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDXh9lICWqv0xmJb6+HDqk8TG/KeAajklBylQK2ftXWY3sjElPBBHONuIxLLc7xlpzXkMl64ebSu/hw698fQtB2z6DNKDRXJo4HyRl00qjtUkmCiajyBDcALlEQv2zxTxlzZJB1ecgton9nacC7Lt3BOCAzegpkv4jnafXfEU4wV/xNyyORYb4LyHjBsro5PtSvuNPJlMR9ROFknl/vo1yEQiNznUMttc2nkXXvS9iVJCm3vWIZr19fhmvfWvoyDIKcku2uegbi8dtKc7+L99kexNGqwhnTMDQqN45Q2jn8msXUPKNUGQvavw6fT5NRmyk5+dNrlKS7hM1FT58GkAa5
+      - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIG/pnihMWo/VfoTtIlnm/RVDusunHfKaKopw+Sfw4ek5 nedzad.fazlic@fane-it.ch
+ssh_pwauth: false
+disable_root: false 
+package_update: true
+packages:
+  - python3
+  - python3-venv
+  - python3-pip
+  - curl
+  - unzip
+
+write_files:
+  - path: /opt/flaskapp/start.sh
+    permissions: '0755'
+    content: |
+      #!/usr/bin/env bash
+      set -euo pipefail
+      cd /opt/flaskapp
+      if [ ! -d venv ]; then
+        echo "[flaskapp] venv not found at /opt/flaskapp/venv. Did you run cloud-init?" >&2
+        exit 1
+      fi
+      source venv/bin/activate
+      # Expect package installed into venv by CD pipeline (pip install <wheel>)      
+      exec python application.py
+
+  - path: /etc/systemd/system/flaskapp.service    
+    permissions: '0644'
+    content: |
+      [Unit]
+      Description=Flask App (my-python-package-2)
+      After=network-online.target
+      Wants=network-online.target
+
+      [Service]
+      Type=simple
+      User=ubuntu
+      WorkingDirectory=/opt/flaskapp
+      ExecStart=/opt/flaskapp/start.sh
+      Restart=always
+      RestartSec=5
+      Environment=PYTHONUNBUFFERED=1
+
+      [Install]
+      WantedBy=multi-user.target
+
+runcmd:
+  # Ensure base dirs and venv
+  - [ bash, -lc, "mkdir -p /opt/flaskapp && chown -R ubuntu:ubuntu /opt/flaskapp" ]
+  - [ bash, -lc, "python3 -m venv /opt/flaskapp/venv" ]
+  - [ bash, -lc, "source /opt/flaskapp/venv/bin/activate && pip install --upgrade pip" ]
+
+  # Install/enable SSM Agent if missing (Ubuntu via snap; ignore errors if preinstalled)
+  - [ bash, -lc, "if ! command -v snap >/dev/null 2>&1; then apt-get update -y && apt-get install -y snapd; fi" ]
+  - [ bash, -lc, "if ! systemctl is-active --quiet snap.amazon-ssm-agent.amazon-ssm-agent.service && ! systemctl is-active --quiet amazon-ssm-agent; then snap install amazon-ssm-agent --classic || true; fi" ]
+  - [ bash, -lc, "systemctl daemon-reload || true" ]
+  - [ bash, -lc, "systemctl enable --now snap.amazon-ssm-agent.amazon-ssm-agent.service || systemctl enable --now amazon-ssm-agent || true" ]
+
+  # Register service (do not enable by default; CD will manage start)
+  - [ bash, -lc, "systemctl daemon-reload" ]
+
+final_message: "Cloud-init complete: base runtime for Flask app prepared."
