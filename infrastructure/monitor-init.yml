@@ -1,0 +1,21 @@
+#cloud-config
+package_update: true
+package_upgrade: true
+packages:
+  - docker.io
+  - docker-compose
+  - git
+
+runcmd:
+  # Install Docker and grant permissions
+  - usermod -aG docker ubuntu
+  - systemctl start docker
+  - systemctl enable docker
+  
+  # Clone your repository (REPLACE YOUR_REPO)
+  - git clone https://github.com/YOUR_USER/YOUR_REPO.git /home/ubuntu/monitor
+  - chown -R ubuntu:ubuntu /home/ubuntu/monitor
+
+  # Run the Monitoring stack using the dedicated docker-compose file
+  - su - ubuntu -c "cd /home/ubuntu/monitor && docker-compose -f docker-compose-monitor.yml pull"
+  - su - ubuntu -c "cd /home/ubuntu/monitor && docker-compose -f docker-compose-monitor.yml up -d"

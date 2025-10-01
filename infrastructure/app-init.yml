@@ -1,0 +1,23 @@
+#cloud-config
+package_update: true
+package_upgrade: true
+packages:
+  - docker.io
+  - docker-compose
+  - git
+  - python3-pip # Install pip just in case
+
+runcmd:
+  # Install Docker and grant permissions
+  - usermod -aG docker ubuntu
+  - systemctl start docker
+  - systemctl enable docker
+  
+  # Clone your repository (REPLACE YOUR_REPO)
+  - git clone https://github.com/YOUR_USER/YOUR_REPO.git /home/ubuntu/app
+  - chown -R ubuntu:ubuntu /home/ubuntu/app
+
+  # Build the application container (uses Dockerfile) and run it detached
+  - su - ubuntu -c "cd /home/ubuntu/app && docker build -t flask-ecommerce ."
+  # Run the container, mapping host port 80 to container port 5000
+  - su - ubuntu -c "docker run -d --restart=always --name flask-app -p 80:5000 flask-ecommerce gunicorn --bind 0.0.0.0:5000 wsgi:app"

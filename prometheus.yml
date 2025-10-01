@@ -1,0 +1,15 @@
+global:
+  scrape_interval: 15s # Scrape targets every 15 seconds
+
+scrape_configs:
+  - job_name: 'prometheus'
+    # Scrape Prometheus itself
+    static_configs:
+      - targets: ['localhost:9090']
+
+  - job_name: 'flask-app'
+    # This IP MUST be replaced by the PRIVATE IP of the Flask-App-EC2
+    # You will retrieve this IP from your Terraform outputs after deployment
+    # For now, use a placeholder IP
+    static_configs:
+      - targets: ['10.0.1.10:5000'] # <<< UPDATE THIS PLACEHOLDER IP AFTER TERRAFORM APPLY

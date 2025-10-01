@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  postgresql:
+    image: postgres:15
+    container_name: sonardb
+    environment:
+      # Change these credentials!
+      - POSTGRES_USER=sonar
+      - POSTGRES_PASSWORD=sonar_password_change_me
+      - POSTGRES_DB=sonarqube
+    volumes:
+      - postgresql_data:/var/lib/postgresql/data
+    restart: always
+
+  sonarqube:
+    # Requires an EC2 instance with 2+ GB RAM (t2.medium or larger)
+    image: sonarqube:lts
+    container_name: sonarqube
+    # Expose to port 9000 on the SonarQube EC2
+    ports:
+      - "9000:9000" 
+    depends_on:
+      - postgresql
+    environment:
+      # Connect SonarQube to the DB container using the service name 'postgresql'
+      - SONARQUBE_JDBC_URL=jdbc:postgresql://postgresql:5432/sonarqube
+      - SONARQUBE_JDBC_USERNAME=sonar
+      - SONARQUBE_JDBC_PASSWORD=sonar_password_change_me
+      # Adjust settings for Linux VM
+      - SONAR_ES_JAVA_OPTS=-Xmx512m -Xms512m
+    volumes:
+      - sonarqube_data:/opt/sonarqube/data
+    restart: always
+    
+volumes:
+  postgresql_data:
+  sonarqube_data:

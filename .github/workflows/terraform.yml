@@ -1,0 +1,108 @@
+name: 'Terraform and SonarQube Deployment'
+
+# Controls when the workflow will run
+on:
+  push:
+    branches:
+      - main  # Adjust branch name if necessary
+  pull_request:
+    branches:
+      - main
+
+# Permissions: We no longer need 'id-token: write' but keep 'contents: read'
+permissions:
+  contents: read
+
+# Environment variables for Terraform
+env:
+  TF_WORKING_DIR: .
+  # NOTE: Your session token shows us-west-2, so we set the region accordingly.
+  AWS_REGION: us-west-2 # <<< IMPORTANT: Match this to the region your temporary token is valid for
+
+jobs:
+  # --- 1. Infrastructure Deployment Job ---
+  terraform-deploy:
+    name: 'Terraform Plan & Apply'
+    runs-on: ubuntu-latest
+    
+    # Inject AWS temporary credentials from GitHub Secrets
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }} # <<< Session token is CRITICAL
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # We skip the "Configure AWS Credentials" action because we are passing 
+      # the environment variables (AWS_*) directly, which Terraform and the AWS provider will use.
+
+      # Set up Terraform CLI
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.8.x
+
+      # Initialize Terraform (fetches providers and sets up backend)
+      - name: Terraform Init
+        id: init
+        run: terraform init
+        working-directory: ${{ env.TF_WORKING_DIR }}
+
+      # Create a Terraform Execution Plan
+      - name: Terraform Plan
+        id: plan
+        run: terraform plan -no-color
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        continue-on-error: true
+
+      # Apply the changes only on the main branch push 
+      - name: Terraform Apply
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: terraform apply -auto-approve -input=false
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        
+      # --- 2. Post-Deployment Steps (for SonarQube analysis) ---
+      
+      # We need the Public IP of the SonarQube instance for the next job (Sonar Scanner)
+      # This requires the "terraform-apply" step to have run successfully
+      - name: Get SonarQube Public IP
+        id: get_sonar_ip
+        if: always() # Run even if apply fails, so we can check the output state
+        run: |
+          # Use "terraform output" to get the IP defined in your main.tf
+          SONAR_IP=$(terraform output -raw sonarqube_public_ip)
+          echo "SONAR_IP=$SONAR_IP" >> $GITHUB_ENV
+        working-directory: ${{ env.TF_WORKING_DIR }}
+
+
+  # --- 2. SonarQube Analysis Job ---
+  sonarqube-scan:
+    name: 'SonarQube Analysis'
+    needs: [terraform-deploy]
+    runs-on: ubuntu-latest
+    
+    # Run only after the deployment job successfully finishes its apply step
+    if: success() && github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 
+
+      # Run the SonarQube Scanner for the Flask application
+      - name: SonarQube Scan
+        uses: SonarSource/sonarcloud-github-action@master 
+        env:
+          SONAR_HOST_URL: http://${{ env.SONAR_IP }}:9000
+          # We still use a secret for the Sonar Token (SONAR_AUTH_TOKEN)
+          SONAR_TOKEN: ${{ secrets.SONAR_AUTH_TOKEN }} 
+        with:
+          args: >
+            -Dsonar.projectKey=flask-ecommerce 
+            -Dsonar.sources=. 
+            -Dsonar.python.version=3.10
+            -Dsonar.login=${{ secrets.SONAR_AUTH_TOKEN }}
+            -Dsonar.host.url=http://${{ env.SONAR_IP }}:9000

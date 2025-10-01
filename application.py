@@ -1,10 +1,16 @@
 from cs50 import SQL
 from flask_session import Session
-from flask import Flask, render_template, redirect, request, session 
+from flask import Flask, render_template, redirect, request, session
+from prometheus_flask_exporter import PrometheusMetrics # <<< ADDED IMPORT
 from datetime import datetime
 
 # # Instantiate Flask object named app
 app = Flask(__name__)
+
+# Initialize Prometheus Metrics on the app
+# This automatically collects common HTTP metrics and exposes the /metrics endpoint
+# on the main application port (5000)
+metrics = PrometheusMetrics(app) # <<< ADDED INITIALIZATION
 
 # # Configure sessions
 app.config["SESSION_PERMANENT"] = False
@@ -12,6 +18,8 @@ app.config["SESSION_TYPE"] = "filesystem"
 Session(app)
 
 # Creates a connection to the database
+# NOTE: The database connection string (10.11.5.5) will need to be updated 
+# if you deploy your database on a separate EC2 instance.
 def get_db():
     if not hasattr(get_db, 'db'):
         get_db.db = SQL("mysql://shopuser:password@10.11.5.5:3306/ecommerce")
@@ -263,7 +271,7 @@ def registration():
         return render_template ( "new.html", msg="Username already exists!" )
     # If new user, upload his/her info into the users database
     new = db.execute ( "INSERT INTO users (username, password, fname, lname, email) VALUES (:username, :password, :fname, :lname, :email)",
-                    username=username, password=password, fname=fname, lname=lname, email=email )
+                      username=username, password=password, fname=fname, lname=lname, email=email )
     # Render login template
     return render_template ( "login.html" )
 
