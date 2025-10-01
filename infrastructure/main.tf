@@ -22,7 +22,7 @@ resource "aws_instance" "flask_app_ec2" {
   key_name                    = "your-ssh-key-name" # <<< REPLACE THIS!
   
   # Uses the cloud-init script for the app
-  user_data = file("${path.module}/infrastructure/app-init.yml")
+  user_data = file("${path.module}/app-init.yml")
 
   tags = {
     Name = "Flask-App-EC2"
@@ -39,7 +39,7 @@ resource "aws_instance" "sonarqube_ec2" {
   key_name                    = "your-ssh-key-name" # <<< REPLACE THIS!
   
   # Uses the cloud-init script for SonarQube
-  user_data = file("${path.module}/infrastructure/sonar-init.yml")
+  user_data = file("${path.module}/sonar-init.yml")
   
   # Add a separate, larger EBS volume for SonarQube data
   root_block_device {
@@ -61,7 +61,7 @@ resource "aws_instance" "monitor_ec2" {
   key_name                    = "your-ssh-key-name" # <<< REPLACE THIS!
   
   # Uses the cloud-init script for monitoring stack
-  user_data = file("${path.module}/infrastructure/monitor-init.yml")
+  user_data = file("${path.module}/monitor-init.yml")
 
   tags = {
     Name = "Monitoring-EC2"
