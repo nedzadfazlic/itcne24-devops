@@ -19,7 +19,6 @@ resource "aws_instance" "flask_app_ec2" {
   subnet_id                   = aws_subnet.public.id 
   vpc_security_group_ids      = [aws_security_group.devops_sg.id]
   associate_public_ip_address = true
-  key_name                    = "your-ssh-key-name" # <<< REPLACE THIS!
   
   # Uses the cloud-init script for the app
   user_data = file("${path.module}/app-init.yml")
@@ -36,7 +35,6 @@ resource "aws_instance" "sonarqube_ec2" {
   subnet_id                   = aws_subnet.public.id
   vpc_security_group_ids      = [aws_security_group.devops_sg.id]
   associate_public_ip_address = true
-  key_name                    = "your-ssh-key-name" # <<< REPLACE THIS!
   
   # Uses the cloud-init script for SonarQube
   user_data = file("${path.module}/sonar-init.yml")
@@ -58,7 +56,6 @@ resource "aws_instance" "monitor_ec2" {
   subnet_id                   = aws_subnet.public.id
   vpc_security_group_ids      = [aws_security_group.devops_sg.id]
   associate_public_ip_address = true
-  key_name                    = "your-ssh-key-name" # <<< REPLACE THIS!
   
   # Uses the cloud-init script for monitoring stack
   user_data = file("${path.module}/monitor-init.yml")
