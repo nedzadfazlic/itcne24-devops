@@ -1,3 +1,9 @@
+provider "aws" {
+  # This MUST match the AWS_REGION variable in your GitHub Actions YAML
+  # We set the YAML to us-east-1, so this should also be us-east-1.
+  region = "us-east-1" 
+}
+
 # Data source to find the latest Ubuntu AMI
 data "aws_ami" "ubuntu" {
   most_recent = true

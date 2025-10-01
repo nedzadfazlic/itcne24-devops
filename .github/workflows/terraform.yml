@@ -17,7 +17,7 @@ permissions:
 env:
   TF_WORKING_DIR: infrastructure
   # NOTE: Your session token shows us-west-2, so we set the region accordingly.
-  AWS_REGION: us-west-2 # <<< IMPORTANT: Match this to the region your temporary token is valid for
+  AWS_REGION: us-east-1 # <<< IMPORTANT: Match this to the region your temporary token is valid for
 
 jobs:
   # --- 1. Infrastructure Deployment Job ---
@@ -106,3 +106,4 @@ jobs:
             -Dsonar.python.version=3.10
             -Dsonar.login=${{ secrets.SONAR_AUTH_TOKEN }}
             -Dsonar.host.url=http://${{ env.SONAR_IP }}:9000
+
