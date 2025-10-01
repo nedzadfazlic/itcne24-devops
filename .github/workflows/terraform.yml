@@ -15,7 +15,7 @@ permissions:
 
 # Environment variables for Terraform
 env:
-  TF_WORKING_DIR: .
+  TF_WORKING_DIR: infrastructure
   # NOTE: Your session token shows us-west-2, so we set the region accordingly.
   AWS_REGION: us-west-2 # <<< IMPORTANT: Match this to the region your temporary token is valid for
 
