@@ -77,8 +77,7 @@ jobs:
         working-directory: ${{ env.TF_WORKING_DIR }}
 
 
-  # --- 2. SonarQube Analysis Job ---
-  sonarqube-scan:
+    sonarqube-scan:
     name: 'SonarQube Analysis'
     needs: [terraform-deploy]
     runs-on: ubuntu-latest
